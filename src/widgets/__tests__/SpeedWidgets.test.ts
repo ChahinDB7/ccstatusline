@@ -133,7 +133,7 @@ describe('TotalSpeedWidget', () => {
 
     it('should render preview values', () => {
         const context: RenderContext = { isPreview: true };
-        expect(widget.render(createItem('total-speed'), context, DEFAULT_SETTINGS)).toBe('Total: 127.7 t/s');
+        expect(widget.render(createItem('total-speed'), context, DEFAULT_SETTINGS)).toBe('T: 127.7 t/s');
         expect(widget.render(createItem('total-speed', { rawValue: true }), context, DEFAULT_SETTINGS)).toBe('127.7 t/s');
     });
 
@@ -141,7 +141,7 @@ describe('TotalSpeedWidget', () => {
         const context: RenderContext = { windowedSpeedMetrics: { 30: createSpeedMetrics({ totalTokens: 300, totalDurationMs: 2000 }) } };
         const item = createItem('total-speed', { metadata: { windowSeconds: '30' } });
 
-        expect(widget.render(item, context, DEFAULT_SETTINGS)).toBe('Total: 150.0 t/s');
+        expect(widget.render(item, context, DEFAULT_SETTINGS)).toBe('T: 150.0 t/s');
     });
 
     it('should return null when windowed metrics are missing for enabled window', () => {

@@ -17,7 +17,7 @@ export class ModelWidget implements Widget {
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
         if (context.isPreview) {
-            return item.rawValue ? 'Claude' : 'Model: Claude';
+            return item.rawValue ? 'Claude' : 'M: Claude';
         }
 
         const model = context.data?.model;
@@ -27,7 +27,7 @@ export class ModelWidget implements Widget {
 
         if (modelDisplayName) {
             const shortName = modelDisplayName.replace(/\s*\(.*\)$/, '');
-            return item.rawValue ? shortName : `Model: ${shortName}`;
+            return item.rawValue ? shortName : `M: ${shortName}`;
         }
         return null;
     }

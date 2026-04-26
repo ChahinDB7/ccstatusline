@@ -39,7 +39,7 @@ describe('WeeklyResetTimerWidget', () => {
     it('renders preview using weekly reset format', () => {
         const widget = new WeeklyResetTimerWidget();
 
-        expect(render(widget, { id: 'weekly-reset', type: 'weekly-reset-timer' }, { isPreview: true })).toBe('Weekly Reset: 1d 12hr 30m');
+        expect(render(widget, { id: 'weekly-reset', type: 'weekly-reset-timer' }, { isPreview: true })).toBe('Weekly R: 1d 12hr 30m');
     });
 
     it('renders preview in hours-only mode when toggled', () => {
@@ -49,7 +49,7 @@ describe('WeeklyResetTimerWidget', () => {
             id: 'weekly-reset',
             type: 'weekly-reset-timer',
             metadata: { hours: 'true' }
-        }, { isPreview: true })).toBe('Weekly Reset: 36hr 30m');
+        }, { isPreview: true })).toBe('Weekly R: 36hr 30m');
     });
 
     it('renders remaining time in time mode', () => {
@@ -64,7 +64,7 @@ describe('WeeklyResetTimerWidget', () => {
         });
         mockFormatUsageDuration.mockReturnValue('134hr 40m');
 
-        expect(render(widget, { id: 'weekly-reset', type: 'weekly-reset-timer' }, { usageData: {} })).toBe('Weekly Reset: 134hr 40m');
+        expect(render(widget, { id: 'weekly-reset', type: 'weekly-reset-timer' }, { usageData: {} })).toBe('Weekly R: 134hr 40m');
         expect(mockFormatUsageDuration).toHaveBeenCalledWith(484800000, false, true);
     });
 
@@ -84,7 +84,7 @@ describe('WeeklyResetTimerWidget', () => {
             id: 'weekly-reset',
             type: 'weekly-reset-timer',
             metadata: { hours: 'true' }
-        }, { usageData: {} })).toBe('Weekly Reset: 134hr 40m');
+        }, { usageData: {} })).toBe('Weekly R: 134hr 40m');
         expect(mockFormatUsageDuration).toHaveBeenCalledWith(484800000, false, false);
     });
 

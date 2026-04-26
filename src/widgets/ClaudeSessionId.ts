@@ -17,13 +17,13 @@ export class ClaudeSessionIdWidget implements Widget {
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
         if (context.isPreview) {
-            return item.rawValue ? 'preview-session-id' : 'Session ID: preview-session-id';
+            return item.rawValue ? 'preview-session-id' : 'ID: preview-session-id';
         } else {
             const sessionId = context.data?.session_id;
             if (!sessionId) {
                 return null;
             }
-            return item.rawValue ? sessionId : `Session ID: ${sessionId}`;
+            return item.rawValue ? sessionId : `ID: ${sessionId}`;
         }
     }
 

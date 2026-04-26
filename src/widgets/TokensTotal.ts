@@ -20,11 +20,11 @@ export class TokensTotalWidget implements Widget {
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
         if (context.isPreview) {
-            return formatRawOrLabeledValue(item, 'Total: ', '30.6k');
+            return formatRawOrLabeledValue(item, 'T: ', '30.6k');
         }
 
         if (context.tokenMetrics) {
-            return formatRawOrLabeledValue(item, 'Total: ', formatTokens(context.tokenMetrics.totalTokens));
+            return formatRawOrLabeledValue(item, 'T: ', formatTokens(context.tokenMetrics.totalTokens));
         }
         return null;
     }

@@ -122,7 +122,7 @@ export class WeeklyResetTimerWidget implements Widget {
                 return formatRawOrLabeledValue(item, 'Weekly Reset ', `[${progressBar}] ${previewPercent.toFixed(1)}%`);
             }
 
-            return formatRawOrLabeledValue(item, 'Weekly Reset: ', formatUsageDuration(WEEKLY_PREVIEW_DURATION_MS, compact, useDays));
+            return formatRawOrLabeledValue(item, 'Weekly R: ', formatUsageDuration(WEEKLY_PREVIEW_DURATION_MS, compact, useDays));
         }
 
         const usageData = context.usageData ?? {};
@@ -145,7 +145,7 @@ export class WeeklyResetTimerWidget implements Widget {
         }
 
         const remainingTime = formatUsageDuration(window.remainingMs, compact, useDays);
-        return formatRawOrLabeledValue(item, 'Weekly Reset: ', remainingTime);
+        return formatRawOrLabeledValue(item, 'Weekly R: ', remainingTime);
     }
 
     getCustomKeybinds(item?: WidgetItem): CustomKeybind[] {

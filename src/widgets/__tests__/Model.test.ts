@@ -42,7 +42,7 @@ describe('ModelWidget', () => {
 
         it('includes Model: prefix when rawValue is false', () => {
             const ctx = makeContext({ data: { model: { id: 'claude-opus-4-6[1m]', display_name: 'Opus 4.6 (1M context)' } } });
-            expect(new ModelWidget().render(ITEM, ctx, DEFAULT_SETTINGS)).toBe('Model: Opus 4.6');
+            expect(new ModelWidget().render(ITEM, ctx, DEFAULT_SETTINGS)).toBe('M: Opus 4.6');
         });
 
         it('returns null when model is absent', () => {
@@ -57,7 +57,7 @@ describe('ModelWidget', () => {
 
         it('returns preview text in preview mode', () => {
             const ctx = makeContext({ isPreview: true });
-            expect(new ModelWidget().render(ITEM, ctx, DEFAULT_SETTINGS)).toBe('Model: Claude');
+            expect(new ModelWidget().render(ITEM, ctx, DEFAULT_SETTINGS)).toBe('M: Claude');
             expect(new ModelWidget().render(RAW_ITEM, ctx, DEFAULT_SETTINGS)).toBe('Claude');
         });
 

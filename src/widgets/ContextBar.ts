@@ -19,6 +19,15 @@ function getDisplayMode(item: WidgetItem): DisplayMode {
     return item.metadata?.display === 'progress' ? 'progress' : 'progress-short';
 }
 
+function formatTokens(n: number): string {
+    const k = Math.round(n / 1000);
+    if (k < 1000) {
+        return `${k}k`;
+    }
+    const m = Math.round(n / 100000) / 10;
+    return Number.isInteger(m) ? `${m}m` : `${m.toFixed(1)}m`;
+}
+
 export class ContextBarWidget implements Widget {
     getDefaultColor(): string { return 'blue'; }
     getDescription(): string { return 'Shows context usage as a progress bar'; }
@@ -62,7 +71,7 @@ export class ContextBarWidget implements Widget {
 
         if (context.isPreview) {
             const previewDisplay = `${makeUsageProgressBar(25, barWidth)} 50k/200k (25%)`;
-            return item.rawValue ? previewDisplay : `Context: ${previewDisplay}`;
+            return item.rawValue ? previewDisplay : `${previewDisplay}`;
         }
 
         const contextWindowMetrics = getContextWindowMetrics(context.data);
@@ -86,11 +95,9 @@ export class ContextBarWidget implements Widget {
         const percent = (used / total) * 100;
         const clampedPercent = Math.max(0, Math.min(100, percent));
 
-        const usedK = Math.round(used / 1000);
-        const totalK = Math.round(total / 1000);
-        const display = `${makeUsageProgressBar(clampedPercent, barWidth)} ${usedK}k/${totalK}k (${Math.round(clampedPercent)}%)`;
+        const display = `${makeUsageProgressBar(clampedPercent, barWidth)} ${formatTokens(used)}/${formatTokens(total)} (${Math.round(clampedPercent)}%)`;
 
-        return item.rawValue ? display : `Context: ${display}`;
+        return item.rawValue ? display : `${display}`;
     }
 
     getCustomKeybinds(): CustomKeybind[] {

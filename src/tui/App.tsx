@@ -17,6 +17,7 @@ import type { Settings } from '../types/Settings';
 import type { WidgetItem } from '../types/Widget';
 import {
     CCSTATUSLINE_COMMANDS,
+    MissingDistFileError,
     getClaudeSettingsPath,
     getExistingStatusLine,
     installStatusLine,
@@ -205,7 +206,17 @@ export const App: React.FC = () => {
                 message,
                 cancelScreen: 'install',
                 action: async () => {
-                    await installStatusLine(useBunx, supportsRefreshInterval);
+                    try {
+                        await installStatusLine(useBunx, supportsRefreshInterval);
+                    } catch (error) {
+                        const text = error instanceof MissingDistFileError
+                            ? `✗ Install failed: ${error.distPath} not found. Run "bun run build" first.`
+                            : `✗ Install failed: ${error instanceof Error ? error.message : String(error)}`;
+                        setFlashMessage({ text, color: 'red' });
+                        setScreen('main');
+                        setConfirmDialog(null);
+                        return;
+                    }
                     const installedStatusLineState = await loadClaudeStatusLineState();
                     setIsClaudeInstalled(true);
                     setExistingStatusLine(installedStatusLineState.existingStatusLine ?? command);

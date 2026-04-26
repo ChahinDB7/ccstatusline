@@ -22,19 +22,6 @@ const readFile = fs.promises.readFile;
 const writeFile = fs.promises.writeFile;
 const mkdir = fs.promises.mkdir;
 
-export const CCSTATUSLINE_COMMANDS = {
-    NPM: 'npx -y ccstatusline@latest',
-    BUNX: 'bunx -y ccstatusline@latest',
-    SELF_MANAGED: 'ccstatusline'
-};
-
-export function isKnownCommand(command: string): boolean {
-    const prefixes = [CCSTATUSLINE_COMMANDS.NPM, CCSTATUSLINE_COMMANDS.BUNX, CCSTATUSLINE_COMMANDS.SELF_MANAGED];
-    // Also match local development commands (e.g., "bun run /path/to/ccstatusline.ts")
-    return prefixes.some(prefix => command === prefix || command.startsWith(`${prefix} --config `))
-        || /(?:^|[\s"'\\/])ccstatusline\.ts(?=$|[\s"'])/.test(command);
-}
-
 function needsQuoting(filePath: string): boolean {
     if (process.platform === 'win32') {
         // cmd.exe-safe set of characters that require quoting.
@@ -54,6 +41,31 @@ function quotePathIfNeeded(filePath: string): string {
     }
 
     return `'${filePath.replace(/'/g, '\'\\\'\'')}'`;
+}
+
+const ccstatuslineDistPath = path.join(process.cwd(), 'dist', 'ccstatusline.js');
+const ccstatuslineNodeCommand = `node ${quotePathIfNeeded(ccstatuslineDistPath)}`;
+
+export const CCSTATUSLINE_COMMANDS = {
+    NPM: ccstatuslineNodeCommand,
+    BUNX: ccstatuslineNodeCommand,
+    SELF_MANAGED: 'ccstatusline'
+};
+
+export class MissingDistFileError extends Error {
+    public readonly distPath: string;
+    constructor(distPath: string) {
+        super(`ccstatusline build artifact not found at ${distPath}. Run "bun run build" before installing.`);
+        this.name = 'MissingDistFileError';
+        this.distPath = distPath;
+    }
+}
+
+export function isKnownCommand(command: string): boolean {
+    const prefixes = [CCSTATUSLINE_COMMANDS.NPM, CCSTATUSLINE_COMMANDS.BUNX, CCSTATUSLINE_COMMANDS.SELF_MANAGED];
+    // Also match local development commands (e.g., "bun run /path/to/ccstatusline.ts")
+    return prefixes.some(prefix => command === prefix || command.startsWith(`${prefix} --config `))
+        || /(?:^|[\s"'\\/])ccstatusline\.ts(?=$|[\s"'])/.test(command);
 }
 
 /**
@@ -258,6 +270,10 @@ async function loadSavedSettingsForHookSync(): Promise<Settings | null> {
 }
 
 export async function installStatusLine(useBunx = false, supportsRefreshInterval = false): Promise<void> {
+    if (!fs.existsSync(ccstatuslineDistPath)) {
+        throw new MissingDistFileError(ccstatuslineDistPath);
+    }
+
     let settings: ClaudeSettings;
 
     const backupPath = await backupClaudeSettings('.orig');
