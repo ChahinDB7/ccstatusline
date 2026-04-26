@@ -43,7 +43,7 @@ function quotePathIfNeeded(filePath: string): string {
     return `'${filePath.replace(/'/g, '\'\\\'\'')}'`;
 }
 
-const ccstatuslineDistPath = path.join(process.cwd(), 'dist', 'ccstatusline.js');
+const ccstatuslineDistPath = path.join(process.cwd(), 'dist', 'ccstatusline.js').replace(/\\/g, '/');
 const ccstatuslineNodeCommand = `node ${quotePathIfNeeded(ccstatuslineDistPath)}`;
 
 export const CCSTATUSLINE_COMMANDS = {
@@ -245,7 +245,8 @@ export function isClaudeCodeVersionAtLeast(minVersion: string): boolean {
 
 function buildCommand(baseCommand: string): string {
     if (isCustomConfigPath()) {
-        return `${baseCommand} --config ${quotePathIfNeeded(getConfigPath())}`;
+        const configPath = getConfigPath().replace(/\\/g, '/');
+        return `${baseCommand} --config ${quotePathIfNeeded(configPath)}`;
     }
     return baseCommand;
 }
