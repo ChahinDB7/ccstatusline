@@ -4,10 +4,12 @@ import * as path from 'path';
 
 import {
     CURRENT_VERSION,
+    MIN_LINE_COUNT,
     SettingsSchema,
     SettingsSchema_v1,
     type Settings
 } from '../types/Settings';
+import type { WidgetItem } from '../types/Widget';
 
 import {
     migrateConfig,
@@ -34,6 +36,23 @@ export function getConfigPath(): string {
 
 export function isCustomConfigPath(): boolean {
     return settingsPath !== DEFAULT_SETTINGS_PATH;
+}
+
+/**
+ * Pads the status lines up to `minimum` entries with empty lines so the editor
+ * always offers that many slots. Existing lines are kept as-is and extra lines
+ * are never dropped, so a config with more lines keeps all of them. Empty lines
+ * render nothing, so this never changes what the status line actually shows.
+ */
+export function ensureMinimumLines(lines: WidgetItem[][], minimum: number = MIN_LINE_COUNT): WidgetItem[][] {
+    if (lines.length >= minimum) {
+        return lines;
+    }
+    const padded = [...lines];
+    while (padded.length < minimum) {
+        padded.push([]);
+    }
+    return padded;
 }
 
 interface SettingsPaths {
@@ -143,7 +162,7 @@ export async function loadSettings(): Promise<Settings> {
 
         return {
             ...result.data,
-            lines: upgradeLegacyWidgetTypes(result.data.lines)
+            lines: ensureMinimumLines(upgradeLegacyWidgetTypes(result.data.lines))
         };
     } catch (error) {
         // Any other error, backup and write defaults

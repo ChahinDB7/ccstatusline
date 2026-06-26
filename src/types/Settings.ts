@@ -8,6 +8,11 @@ import { WidgetItemSchema } from './Widget';
 // Current version - bump this when making breaking changes to the schema
 export const CURRENT_VERSION = 3;
 
+// Number of status line slots the editor exposes by default. Lines past the
+// first are optional: an empty line renders nothing, so a line only shows up in
+// the status line once it has at least one widget. Bump this to offer more slots.
+export const MIN_LINE_COUNT = 4;
+
 // Schema for v1 settings (before version field was added)
 export const SettingsSchema_v1 = z.object({
     lines: z.array(z.array(WidgetItemSchema)).optional(),
@@ -38,8 +43,9 @@ export const SettingsSchema = z.object({
                 { id: '7', type: 'git-changes', color: 'yellow' }
             ],
             [],
+            [],
             []
-        ]), // Ensure max 3 lines
+        ]), // MIN_LINE_COUNT slots; trailing lines are optional and render only when they hold a widget
     flexMode: FlexModeSchema.default('full-minus-40'),
     compactThreshold: z.number().min(1).max(99).default(60),
     colorLevel: ColorLevelSchema.default(2),

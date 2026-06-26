@@ -15,8 +15,10 @@ import {
 import {
     CURRENT_VERSION,
     DEFAULT_SETTINGS,
+    MIN_LINE_COUNT,
     type Settings
 } from '../../types/Settings';
+import type { WidgetItem } from '../../types/Widget';
 
 const MOCK_HOME_DIR = '/tmp/ccstatusline-config-test-home';
 const ORIGINAL_CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
@@ -24,6 +26,7 @@ const ORIGINAL_CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
 let loadSettings: () => Promise<Settings>;
 let saveSettings: (settings: Settings) => Promise<void>;
 let initConfigPath: (filePath?: string) => void;
+let ensureMinimumLines: (lines: WidgetItem[][], minimum?: number) => WidgetItem[][];
 let consoleErrorSpy: MockInstance<typeof console.error>;
 
 function getSettingsPaths(): { configDir: string; settingsPath: string; backupPath: string } {
@@ -45,6 +48,7 @@ describe('config utilities', () => {
         loadSettings = configModule.loadSettings;
         saveSettings = configModule.saveSettings;
         initConfigPath = configModule.initConfigPath;
+        ensureMinimumLines = configModule.ensureMinimumLines;
     });
 
     beforeEach(() => {
@@ -205,5 +209,79 @@ describe('config utilities', () => {
 
         const onDiskAfterSave = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as { lines: { type: string }[][] };
         expect(onDiskAfterSave.lines[0]?.[1]?.type).toBe('git-review');
+    });
+
+    it('defaults to MIN_LINE_COUNT lines with the extra lines empty', () => {
+        expect(MIN_LINE_COUNT).toBe(4);
+        expect(DEFAULT_SETTINGS.lines).toHaveLength(MIN_LINE_COUNT);
+        expect(DEFAULT_SETTINGS.lines[0]?.length).toBeGreaterThan(0);
+        for (let i = 1; i < MIN_LINE_COUNT; i++) {
+            expect(DEFAULT_SETTINGS.lines[i]).toEqual([]);
+        }
+    });
+
+    describe('ensureMinimumLines', () => {
+        it('pads a short list up to the minimum with empty lines', () => {
+            const lines: WidgetItem[][] = [[{ id: 'a', type: 'model' }]];
+            const padded = ensureMinimumLines(lines, 4);
+
+            expect(padded).toHaveLength(4);
+            expect(padded[0]).toBe(lines[0]); // existing line kept as-is
+            expect(padded[1]).toEqual([]);
+            expect(padded[2]).toEqual([]);
+            expect(padded[3]).toEqual([]);
+        });
+
+        it('never drops lines from a config that already has enough', () => {
+            const lines: WidgetItem[][] = [
+                [{ id: 'a', type: 'model' }],
+                [{ id: 'b', type: 'git-branch' }],
+                [{ id: 'c', type: 'version' }],
+                [{ id: 'd', type: 'session-cost' }],
+                [{ id: 'e', type: 'terminal-width' }]
+            ];
+            const result = ensureMinimumLines(lines, 4);
+
+            expect(result).toHaveLength(5);
+            expect(result).toBe(lines); // returned unchanged
+        });
+
+        it('is idempotent', () => {
+            const once = ensureMinimumLines([[{ id: 'a', type: 'model' }]], 4);
+            const twice = ensureMinimumLines(once, 4);
+            expect(twice).toEqual(once);
+        });
+    });
+
+    it('keeps an existing 3-line config intact and exposes an optional 4th line', async () => {
+        const { settingsPath, configDir } = getSettingsPaths();
+        fs.mkdirSync(configDir, { recursive: true });
+
+        // Mirrors a real user config: three current lines, current version.
+        const existing = {
+            version: CURRENT_VERSION,
+            lines: [
+                [{ id: 'l1', type: 'context-bar' }],
+                [{ id: 'l2', type: 'session-usage', color: 'yellow' }],
+                [{ id: 'l3', type: 'weekly-usage', color: 'brightCyan' }]
+            ]
+        };
+        fs.writeFileSync(settingsPath, JSON.stringify(existing), 'utf-8');
+
+        const settings = await loadSettings();
+
+        // The three configured lines are preserved exactly.
+        expect(settings.lines[0]).toEqual(existing.lines[0]);
+        expect(settings.lines[1]).toEqual(existing.lines[1]);
+        expect(settings.lines[2]).toEqual(existing.lines[2]);
+
+        // A 4th line is exposed for editing, and it is empty (optional / hidden).
+        expect(settings.lines).toHaveLength(MIN_LINE_COUNT);
+        expect(settings.lines[3]).toEqual([]);
+
+        // Loading does NOT rewrite the file: the on-disk config still has 3 lines.
+        const onDisk = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as { lines: unknown[] };
+        expect(onDisk.lines).toHaveLength(3);
+        expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 });

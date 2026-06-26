@@ -2,150 +2,99 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Note:** `CLAUDE.md` is a symlink to `AGENTS.md`. Edit `AGENTS.md` (the real file) — do not replace the symlink. One doc serves Claude Code, Codex, and other agents.
+
 ## Project Overview
 
-ccstatusline is a customizable status line formatter for Claude Code CLI that displays model info, git branch, token usage, and other metrics. It functions as both:
-1. A piped command processor for Claude Code status lines
-2. An interactive TUI configuration tool when run without input
+ccstatusline is a customizable status line formatter for Claude Code CLI that displays model info, git status, token usage, context window, usage/rate-limit windows, and other metrics. It runs in two modes:
+1. **Piped mode** — Claude Code pipes a JSON status payload to stdin; ccstatusline prints one formatted status line.
+2. **Interactive mode** — run with no piped input, it launches a React/Ink TUI for configuring the status line.
+
+`src/ccstatusline.ts` detects which mode to use based on whether stdin is a TTY / has piped data.
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-bun install
+bun install              # Install deps (also applies the ink@6.2.0 patch)
+bun run start            # Launch interactive TUI
 
-# Run in interactive TUI mode
-bun run start
-
-# Test with piped input (use [1m] suffix for 1M context models)
+# Piped mode test (use [1m] suffix for 1M-context models)
 echo '{"model":{"id":"claude-sonnet-4-5-20250929[1m]"},"transcript_path":"test.jsonl"}' | bun run src/ccstatusline.ts
+bun run example          # Same, using scripts/payload.example.json
 
-# Or use example payload
-bun run example
+bun test                 # Run all tests
+bun test <path>          # Run a single test file
+bun test -t "<pattern>"  # Run tests matching a name pattern
 
-# Build for npm distribution
-bun run build   # Creates dist/ccstatusline.js with Node.js 14+ compatibility
+bun run lint             # tsc --noEmit + eslint (--max-warnings=0); CI runs this
+bun run lint:fix         # Same, but apply ESLint autofixes (only when intended)
 
-# Run tests
-bun test
-
-# Run tests in watch mode
-bun test --watch
-
-# Lint and type check
-bun run lint      # Runs TypeScript type checking and ESLint without modifying files
-
-# Apply ESLint auto-fixes intentionally
-bun run lint:fix
+bun run build            # Bundle to dist/ccstatusline.js (Node 14+ target)
+bun run docs             # Generate TypeDoc into typedoc/
 ```
+
+CI (`.github/workflows/ci.yml`) runs three jobs: **lint**, **test**, and **build** (build also asserts `dist/ccstatusline.js` exists). Match these locally before pushing.
 
 ## Architecture
 
-The project has dual runtime compatibility - works with both Bun and Node.js:
+Dual runtime: the same source runs under Bun (dev) and the bundled output runs under Node.js 14+ (published binary). Avoid Bun-only APIs in code paths that ship in `dist/`; stdin reading branches on `Bun` vs Node at runtime.
 
-### Core Structure
-- **src/ccstatusline.ts**: Main entry point that detects piped vs interactive mode
-  - Piped mode: Parses JSON from stdin and renders formatted status line
-  - Interactive mode: Launches React/Ink TUI for configuration
+### Entry point
+- **src/ccstatusline.ts** — mode detection; in piped mode parses `StatusJSON` from stdin and calls the renderer, in interactive mode mounts the TUI.
 
-### TUI Components (src/tui/)
-- **index.tsx**: Main TUI entry point that handles React/Ink initialization
-- **App.tsx**: Root component managing navigation and state
-- **components/**: Modular UI components for different configuration screens
-  - MainMenu, LineSelector, ItemsEditor, ColorMenu, GlobalOverridesMenu
-  - PowerlineSetup, TerminalOptionsMenu, StatusLinePreview
+### Rendering (src/utils/)
+- **renderer.ts** — core pipeline: resolves widgets, applies colors/padding/separators, handles truncation and flex-separator expansion.
+- **FlexMode** (`src/types/FlexMode.ts`) — three terminal-width modes: `full`, `full-minus-40`, `full-until-compact` (default `full-minus-40`).
+- **colors.ts / ansi.ts / color-sanitize.ts** — color definitions, ANSI mapping, sanitization.
+- **powerline.ts / powerline-settings.ts / powerline-theme-index.ts** — Powerline font detection/install and themes.
+- **hyperlink.ts** — OSC 8 terminal hyperlinks (Link widget).
 
-### Utilities (src/utils/)
-- **config.ts**: Settings management
-  - Loads from `~/.config/ccstatusline/settings.json`
-  - Handles migration from old settings format
-  - Default configuration if no settings exist
-- **renderer.ts**: Core rendering logic for status lines
-  - Handles terminal width detection and truncation
-  - Applies colors, padding, and separators
-  - Manages flex separator expansion
-- **powerline.ts**: Powerline font detection and installation
-- **claude-settings.ts**: Integration with Claude Code settings.json
-  - Respects `CLAUDE_CONFIG_DIR` environment variable with fallback to `~/.claude`
-  - Provides installation command constants (NPM, BUNX, self-managed)
-  - Detects installation status and manages settings.json updates
-  - Validates config directory paths with proper error handling
-- **colors.ts**: Color definitions and ANSI code mapping
-- **model-context.ts**: Model-to-context-window mapping
-  - Maps model IDs to their context window sizes based on [1m] suffix
-  - Sonnet 4.5 WITH [1m] suffix: 1M tokens (800k usable at 80%) - requires long context beta access
-  - Sonnet 4.5 WITHOUT [1m] suffix: 200k tokens (160k usable at 80%)
-  - Legacy models: 200k tokens (160k usable at 80%)
+### TUI (src/tui/)
+- **index.tsx** mounts Ink; **App.tsx** owns navigation/state.
+- **components/** — one component per screen: MainMenu, LineSelector, ItemsEditor, ColorMenu (+ `color-menu/mutations.ts`), GlobalOverridesMenu, PowerlineSetup/ThemeSelector/SeparatorEditor, TerminalOptionsMenu, TerminalWidthMenu, RefreshIntervalMenu, InstallMenu, StatusLinePreview, plus shared List/ConfirmDialog.
+- **components/items-editor/input-handlers.ts** — keyboard handling for the items editor, unit-tested separately from the component.
 
 ### Widgets (src/widgets/)
-Custom widgets implementing the Widget interface defined in src/types/Widget.ts:
+Each widget is a class implementing the `Widget` interface in `src/types/Widget.ts`. Required methods: `getDefaultColor`, `getDescription`, `getDisplayName`, `getCategory`, `getEditorDisplay`, `render`, `supportsRawValue`, `supportsColors`. Optional: `renderEditor` (Ink editor UI), `getCustomKeybinds`, `handleEditorAction`, `getNumericValue`. Shared widget helpers live in `src/widgets/shared/`.
 
-**Widget Interface:**
-All widgets must implement:
-- `getDefaultColor()`: Default color for the widget
-- `getDescription()`: Description shown in TUI
-- `getDisplayName()`: Display name shown in TUI
-- `getEditorDisplay()`: How the widget appears in the editor
-- `render()`: Core rendering logic that produces the widget output
-- `supportsRawValue()`: Whether widget supports raw value mode
-- `supportsColors()`: Whether widget supports color customization
-- Optional: `renderEditor()`, `getCustomKeybinds()`, `handleEditorAction()`
+**Registration is manifest-driven** — to add a widget:
+1. Create the class in `src/widgets/`.
+2. Export it from `src/widgets/index.ts`.
+3. Add an entry to `WIDGET_MANIFEST` in `src/utils/widget-manifest.ts` (layout-only items like separators go in `LAYOUT_WIDGET_MANIFEST`).
 
-**Widget Registry Pattern:**
-- Located in src/utils/widgets.ts
-- Uses a Map-based registry (`widgetRegistry`) that maps widget type strings to widget instances
-- `getWidget(type)`: Retrieves widget instance by type
-- `getAllWidgetTypes()`: Returns all available widget types
-- `isKnownWidgetType()`: Validates if a type is registered
+`src/utils/widgets.ts` builds the runtime registry from the manifest and provides the TUI widget picker (categories + fuzzy search/scoring/highlight via `getWidgetCatalog` / `filterWidgetCatalog` / `getMatchSegments`). Renamed widget types stay backward-compatible through `LEGACY_WIDGET_TYPE_ALIASES` / `resolveLegacyWidgetType` (e.g. `git-pr` → `git-review`).
 
-**Available Widgets:**
-- Model, Version, OutputStyle - Claude Code metadata display
-- GitBranch, GitChanges, GitInsertions, GitDeletions, GitWorktree - Git repository status
-- TokensInput, TokensOutput, TokensCached, TokensTotal - Token usage metrics
-- ContextLength, ContextPercentage, ContextPercentageUsable - Context window metrics (uses dynamic model-based context windows: 1M for Sonnet 4.5 with [1m] suffix, 200k for all other models)
-- BlockTimer, SessionClock, SessionCost - Time and cost tracking
-- CurrentWorkingDir, TerminalWidth - Environment info
-- CustomText, CustomCommand - User-defined widgets
+Widgets are grouped by `getCategory()` into families: Claude metadata (Model, Version, OutputStyle, ThinkingEffort, VimMode, ClaudeSessionId, ClaudeAccountEmail, SessionName), Git (branch/status/staged/unstaged/untracked/conflicts/sha/ahead-behind, origin & upstream owner/repo, fork, worktree, PR review), tokens & speed (TokensInput/Output/Cached/Total, Input/Output/TotalSpeed), context (ContextLength, ContextPercentage, ContextPercentageUsable, ContextBar), usage/time/cost (SessionUsage, WeeklyUsage, BlockTimer, reset timers, SessionClock, SessionCost), environment (CurrentWorkingDir, TerminalWidth, FreeMemory, Skills), and custom (CustomText, CustomSymbol, CustomCommand, Link).
 
-## Key Implementation Details
+### Data sources (src/utils/)
+- **jsonl.ts** — facade re-exporting transcript parsing split across `jsonl-blocks.ts` (5-hour billing blocks), `jsonl-metrics.ts` (token/speed/duration metrics), `jsonl-metadata.ts` (thinking effort), and `jsonl-cache.ts` (block cache keyed by a hash of the Claude config dir).
+- **context-window.ts** — context window metrics (window size, used/remaining %) from `StatusJSON`; window size is model-dependent (1M for `[1m]`-suffixed models, else 200k — see `model-context.ts`).
+- **usage.ts** — facade over the usage subsystem: `usage-fetch.ts` calls the Claude usage API (caches to `~/.cache/ccstatusline/usage.json` with a lock file + rate-limit backoff), `usage-windows.ts` derives 5-hour and 7-day usage windows, `usage-types.ts` holds schemas. Powers SessionUsage/WeeklyUsage/reset-timer/ContextBar widgets.
+- **speed-metrics.ts / speed-window.ts** — tokens/sec calculations.
+- **skills.ts** — reads skill-invocation logs at `~/.cache/ccstatusline/skills/skills-<sessionId>.jsonl`, populated by a Claude Code hook this tool installs.
+- **git.ts / git-remote.ts / git-review-cache.ts** — `runGit`/`runGitArgs` wrappers (`execSync`), origin/upstream/fork resolution, and PR-review caching.
 
-- **Cross-platform stdin reading**: Detects Bun vs Node.js environment and uses appropriate stdin API
-- **Token metrics**: Parses Claude Code transcript files (JSONL format) to calculate token usage
-- **Git integration**: Uses child_process.execSync to get current branch and changes
-- **Terminal width management**: Three modes for handling width (full, full-minus-40, full-until-compact)
-- **Flex separators**: Special separator type that expands to fill available space
-- **Powerline mode**: Optional Powerline-style rendering with arrow separators
-- **Custom commands**: Execute shell commands and display output in status line
-- **Mergeable items**: Items can be merged together with or without padding
+### Config & integration (src/utils/)
+- **config.ts** — loads/saves ccstatusline settings at `~/.config/ccstatusline/settings.json`; on load it runs **migrations.ts** (versioned v1→v2→v3, `migrateConfig`/`CURRENT_VERSION`) and backs up unparseable files. Settings are Zod-validated (`src/types/Settings.ts`).
+- **claude-settings.ts** — reads/writes Claude Code's `settings.json`. Resolves the config dir from `CLAUDE_CONFIG_DIR`, falling back to `~/.claude`. Holds the install-command constants and detects/updates the `statusLine` entry.
+- **hooks.ts** — installs/removes Claude Code hooks tagged `ccstatusline-managed` (used to capture skill invocations, etc.).
 
-## Bun Usage Preferences
+### Cache & config locations
+- `~/.config/ccstatusline/settings.json` — ccstatusline settings.
+- `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR`) — Claude Code settings.
+- `~/.cache/ccstatusline/` — `block-cache-*.json`, `usage.json` + `usage.lock`, `skills/skills-<sessionId>.jsonl`.
 
-Default to using Bun instead of Node.js:
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun install` instead of `npm install`
-- Use `bun run <script>` instead of `npm run <script>`
-- Use `bun build` with appropriate options for building
-- Bun automatically loads .env, so don't use dotenv
+## Build & Distribution
 
-## Important Notes
+- `bun run build` clears `dist/`, bundles `src/ccstatusline.ts` into a single `dist/ccstatusline.js` (`--target=node --target-version=14`, all runtime deps inlined), then `postbuild` runs `scripts/replace-version.ts` to swap the `__PACKAGE_VERSION__` placeholder with `package.json`'s version.
+- Only `dist/` is published (`package.json` `files` + `bin`).
+- The TUI's install flow points Claude Code at the locally built `dist/ccstatusline.js` (this fork's customization) rather than `npx -y ccstatusline@latest`; run `bun run build` before installing.
 
-- **ink@6.2.0 patch**: The project uses a patch for ink@6.2.0 to fix backspace key handling on macOS
-  - Issue: ink treats `\x7f` (backspace on macOS) as delete key instead of backspace
-  - Fix: Patches `build/parse-keypress.js` to correctly map `\x7f` to backspace
-  - Applied automatically during `bun install` via `patchedDependencies` in package.json
-  - Patch file: `patches/ink@6.2.0.patch`
-- **Build process**: Two-step build using `bun run build`
-  1. `bun build`: Bundles src/ccstatusline.ts into dist/ccstatusline.js targeting Node.js 14+
-  2. `postbuild`: Runs scripts/replace-version.ts to replace `__PACKAGE_VERSION__` placeholder with actual version from package.json
-- **ESLint configuration**: Uses flat config format (eslint.config.js) with TypeScript and React plugins
-- **Dependencies**: All runtime dependencies are bundled using `--packages=external` for npm package
-- **Type checking and linting**: Run checks via `bun run lint` and use `bun run lint:fix` only when you intentionally want ESLint auto-fixes. Never use `npx eslint`, `eslint`, `tsx`, `bun tsc`, or any other variation directly
-- **Lint rules**: Never disable a lint rule via a comment, no matter how benign the lint warning or error may seem
-- **Testing**: Uses Vitest (via Bun) with 6 test files and ~40 test cases covering:
-  - Model context detection and token calculation (src/utils/__tests__/model-context.test.ts)
-  - Context percentage calculations (src/utils/__tests__/context-percentage.test.ts)
-  - JSONL transcript parsing (src/utils/__tests__/jsonl.test.ts)
-  - Widget rendering (src/widgets/__tests__/*.test.ts)
-  - Run tests with `bun test` or `bun test --watch` for watch mode
-  - Test configuration: vitest.config.ts
-  - Manual testing also available via piped input and TUI interaction
+## Conventions & Gotchas
+
+- **Bun first** — prefer `bun <file>` / `bun install` / `bun run <script>` over the Node/npm equivalents. Bun auto-loads `.env`, so don't add dotenv.
+- **Linting** — run checks only via `bun run lint` / `bun run lint:fix`. Never invoke `npx eslint`, `eslint`, `tsx`, `bun tsc`, or other variants directly. The config is flat-config ESLint (`eslint.config.js`) with TypeScript + React plugins; `--max-warnings=0` means warnings fail the build.
+- **Never disable a lint rule via an inline comment**, however benign it looks — fix the underlying code.
+- **ink@6.2.0 patch** — `patches/ink@6.2.0.patch` fixes macOS backspace (`\x7f` was treated as delete). Applied automatically on `bun install` via `patchedDependencies`.
+- **Tests** — Vitest-style files (`import { ... } from 'vitest'`, `src/**/*.test.ts(x)`) run under `bun test` (Bun's native runner via its vitest compat layer). ~80 test files cover utils (config/migrations, jsonl parsing, usage windows, git, renderer, context) and individual widgets.
+- **Hand-written docs** live in `docs/` (USAGE.md, WINDOWS.md, DEVELOPMENT.md); generated API docs go to `typedoc/`.
