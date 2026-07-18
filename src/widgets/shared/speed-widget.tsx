@@ -60,7 +60,7 @@ const SPEED_WIDGET_CONFIG: Record<SpeedWidgetKind, SpeedWidgetKindConfig> = {
         windowedPreview: '26.8 t/s'
     },
     total: {
-        label: 'Total: ',
+        label: 'T: ',
         displayName: 'Total Speed',
         description: 'Shows session-average total token speed (tokens/sec). Optional window: 0-120 seconds (0 = full-session average).',
         sessionPreview: '127.7 t/s',

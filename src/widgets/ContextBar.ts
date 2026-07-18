@@ -70,8 +70,7 @@ export class ContextBarWidget implements Widget {
         const barWidth = displayMode === 'progress' ? 32 : 16;
 
         if (context.isPreview) {
-            const previewDisplay = `${makeUsageProgressBar(25, barWidth)} 50k/200k (25%)`;
-            return item.rawValue ? previewDisplay : `${previewDisplay}`;
+            return `${makeUsageProgressBar(25, barWidth)} 50k/200k (25%)`;
         }
 
         const contextWindowMetrics = getContextWindowMetrics(context.data);
@@ -95,9 +94,7 @@ export class ContextBarWidget implements Widget {
         const percent = (used / total) * 100;
         const clampedPercent = Math.max(0, Math.min(100, percent));
 
-        const display = `${makeUsageProgressBar(clampedPercent, barWidth)} ${formatTokens(used)}/${formatTokens(total)} (${Math.round(clampedPercent)}%)`;
-
-        return item.rawValue ? display : `${display}`;
+        return `${makeUsageProgressBar(clampedPercent, barWidth)} ${formatTokens(used)}/${formatTokens(total)} (${Math.round(clampedPercent)}%)`;
     }
 
     getCustomKeybinds(): CustomKeybind[] {

@@ -32,6 +32,11 @@ const MODEL_WITH_SUPER_MAX_EFFORT = '<local-command-stdout>Set model to \u001b[1
 const MODEL_WITH_SUPER_MAX_MIXED_CASE_EFFORT = '<local-command-stdout>Set model to \u001b[1mopus (claude-opus-4-8)\u001b[22m with \u001b[1mSuper-Max\u001b[22m effort</local-command-stdout>';
 const MODEL_WITHOUT_EFFORT = '<local-command-stdout>Set model to \u001b[1msonnet (claude-sonnet-4-5)\u001b[22m</local-command-stdout>';
 
+const EFFORT_LEVEL_MAX = '<local-command-stdout>Set effort level to max (this session only): Maximum capability with deepest reasoning. May use excessive tokens resulting in long response times or overthinking. Use sparingly for the hardest tasks.</local-command-stdout>';
+const EFFORT_LEVEL_ULTRACODE = '<local-command-stdout>Set effort level to ultracode (this session only): xhigh + dynamic workflow orchestration</local-command-stdout>';
+const EFFORT_LEVEL_XHIGH_SAVED = '<local-command-stdout>Set effort level to xhigh (saved as your default for new sessions): Deeper reasoning than high, just below maximum</local-command-stdout>';
+const EFFORT_LEVEL_UNKNOWN = '<local-command-stdout>Set effort level to hyper-drive (this session only): Experimental level</local-command-stdout>';
+
 let tempDir: string;
 
 function makeTranscriptEntry(content: string): string {
@@ -164,6 +169,43 @@ describe('ThinkingEffortWidget', () => {
         it('lowercases and marks mixed-case unknown effort', () => {
             const result = render({ fileContent: makeTranscriptEntry(MODEL_WITH_SUPER_MAX_MIXED_CASE_EFFORT) });
             expect(result).toBe('Thinking: super-max?');
+        });
+
+        it('reads effort from the latest /effort transcript stdout', () => {
+            const result = render({
+                fileContent: makeTranscriptEntry(EFFORT_LEVEL_MAX),
+                settingsValue: { effortLevel: 'xhigh' }
+            });
+            expect(result).toBe('Thinking: max');
+        });
+
+        it('supports ultracode effort from /effort output', () => {
+            const result = render({
+                fileContent: makeTranscriptEntry(EFFORT_LEVEL_ULTRACODE),
+                settingsValue: { effortLevel: 'xhigh' }
+            });
+            expect(result).toBe('Thinking: ultracode');
+        });
+
+        it('supports /effort output saved as default', () => {
+            const result = render({ fileContent: makeTranscriptEntry(EFFORT_LEVEL_XHIGH_SAVED) });
+            expect(result).toBe('Thinking: xhigh');
+        });
+
+        it('shows unknown /effort level with trailing "?" marker', () => {
+            const result = render({ fileContent: makeTranscriptEntry(EFFORT_LEVEL_UNKNOWN) });
+            expect(result).toBe('Thinking: hyper-drive?');
+        });
+
+        it('prefers the newest effort change across /model and /effort outputs', () => {
+            const result = render({
+                fileContent: [
+                    makeTranscriptEntry(MODEL_WITH_HIGH_EFFORT),
+                    makeTranscriptEntry(EFFORT_LEVEL_ULTRACODE)
+                ].join('\n'),
+                settingsValue: { effortLevel: 'xhigh' }
+            });
+            expect(result).toBe('Thinking: ultracode');
         });
 
         it('does not keep stale transcript effort when a newer /model output has no effort', () => {
