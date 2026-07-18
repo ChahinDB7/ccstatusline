@@ -67,7 +67,7 @@ export class ContextBarWidget implements Widget {
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
         const displayMode = getDisplayMode(item);
-        const barWidth = displayMode === 'progress' ? 32 : 16;
+        const barWidth = displayMode === 'progress' ? 22 : 11;
 
         if (context.isPreview) {
             return `${makeUsageProgressBar(25, barWidth)} 50k/200k (25%)`;

@@ -20,16 +20,10 @@ import {
 } from './colors';
 import { calculateContextPercentage } from './context-percentage';
 import { getTerminalWidth } from './terminal';
+import { formatTokens } from './token-format';
 import { getWidget } from './widgets';
 
-// Helper function to format token counts
-export function formatTokens(count: number): string {
-    if (count >= 1000000)
-        return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000)
-        return `${(count / 1000).toFixed(1)}k`;
-    return count.toString();
-}
+export { formatTokens };
 
 function resolveEffectiveTerminalWidth(
     detectedWidth: number | null,

@@ -13,6 +13,7 @@ export type { ColorLevel, ColorLevelString } from './ColorLevel';
 export { getColorLevelString } from './ColorLevel';
 export type { StatusJSON } from './StatusJSON';
 export type { TokenMetrics, TokenUsage, TranscriptLine } from './TokenMetrics';
+export type { TranscriptMakeup } from './TranscriptMakeup';
 export type { RenderContext } from './RenderContext';
 export type { PowerlineFontStatus } from './PowerlineFontStatus';
 export type { ClaudeSettings } from './ClaudeSettings';

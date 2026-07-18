@@ -6,6 +6,7 @@ import type {
 import type { SpeedMetrics } from './SpeedMetrics';
 import type { StatusJSON } from './StatusJSON';
 import type { TokenMetrics } from './TokenMetrics';
+import type { TranscriptMakeup } from './TranscriptMakeup';
 
 export interface RenderUsageData {
     sessionUsage?: number;
@@ -22,6 +23,7 @@ export interface RenderUsageData {
 export interface RenderContext {
     data?: StatusJSON;
     tokenMetrics?: TokenMetrics | null;
+    transcriptMakeup?: TranscriptMakeup | null;
     speedMetrics?: SpeedMetrics | null;
     windowedSpeedMetrics?: Record<string, SpeedMetrics> | null;
     usageData?: RenderUsageData | null;

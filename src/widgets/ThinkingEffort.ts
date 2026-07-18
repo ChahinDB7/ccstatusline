@@ -50,11 +50,11 @@ export class ThinkingEffortWidget implements Widget {
 
     render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
         if (context.isPreview) {
-            return item.rawValue ? 'high' : 'Thinking: high';
+            return item.rawValue ? 'high' : 'Effort: high';
         }
 
         const effort = formatEffort(resolveThinkingEffort(context));
-        return item.rawValue ? effort : `Thinking: ${effort}`;
+        return item.rawValue ? effort : `Effort: ${effort}`;
     }
 
     supportsRawValue(): boolean { return true; }

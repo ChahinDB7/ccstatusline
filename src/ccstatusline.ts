@@ -5,7 +5,8 @@ import { runTUI } from './tui';
 import type {
     SkillsMetrics,
     SpeedMetrics,
-    TokenMetrics
+    TokenMetrics,
+    TranscriptMakeup
 } from './types';
 import type { RenderContext } from './types/RenderContext';
 import type { StatusJSON } from './types/StatusJSON';
@@ -20,7 +21,8 @@ import {
 import {
     getSessionDuration,
     getSpeedMetricsCollection,
-    getTokenMetrics
+    getTokenMetrics,
+    getTranscriptMakeup
 } from './utils/jsonl';
 import { advanceGlobalPowerlineThemeIndex } from './utils/powerline-theme-index';
 import {
@@ -117,6 +119,13 @@ async function renderMultipleLines(data: StatusJSON) {
         tokenMetrics = await getTokenMetrics(data.transcript_path);
     }
 
+    const makeupWidgetTypes = new Set(['tokens-tools', 'tokens-tool-calls', 'tokens-tool-outputs', 'tokens-assistant', 'tokens-user']);
+    const hasMakeupItems = lines.some(line => line.some(item => makeupWidgetTypes.has(item.type)));
+    let transcriptMakeup: TranscriptMakeup | null = null;
+    if (hasMakeupItems && data.transcript_path) {
+        transcriptMakeup = await getTranscriptMakeup(data.transcript_path);
+    }
+
     let sessionDuration: string | null = null;
     if (hasSessionClock && !hasSessionDurationInStatusJson(data) && data.transcript_path) {
         sessionDuration = await getSessionDuration(data.transcript_path);
@@ -145,6 +154,7 @@ async function renderMultipleLines(data: StatusJSON) {
     const context: RenderContext = {
         data,
         tokenMetrics,
+        transcriptMakeup,
         speedMetrics,
         windowedSpeedMetrics,
         usageData,

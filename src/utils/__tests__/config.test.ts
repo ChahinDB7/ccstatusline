@@ -212,7 +212,7 @@ describe('config utilities', () => {
     });
 
     it('defaults to MIN_LINE_COUNT lines with the extra lines empty', () => {
-        expect(MIN_LINE_COUNT).toBe(4);
+        expect(MIN_LINE_COUNT).toBe(5);
         expect(DEFAULT_SETTINGS.lines).toHaveLength(MIN_LINE_COUNT);
         expect(DEFAULT_SETTINGS.lines[0]?.length).toBeGreaterThan(0);
         for (let i = 1; i < MIN_LINE_COUNT; i++) {
@@ -223,13 +223,14 @@ describe('config utilities', () => {
     describe('ensureMinimumLines', () => {
         it('pads a short list up to the minimum with empty lines', () => {
             const lines: WidgetItem[][] = [[{ id: 'a', type: 'model' }]];
-            const padded = ensureMinimumLines(lines, 4);
+            const padded = ensureMinimumLines(lines, 5);
 
-            expect(padded).toHaveLength(4);
+            expect(padded).toHaveLength(5);
             expect(padded[0]).toBe(lines[0]); // existing line kept as-is
             expect(padded[1]).toEqual([]);
             expect(padded[2]).toEqual([]);
             expect(padded[3]).toEqual([]);
+            expect(padded[4]).toEqual([]);
         });
 
         it('never drops lines from a config that already has enough', () => {
@@ -238,22 +239,23 @@ describe('config utilities', () => {
                 [{ id: 'b', type: 'git-branch' }],
                 [{ id: 'c', type: 'version' }],
                 [{ id: 'd', type: 'session-cost' }],
-                [{ id: 'e', type: 'terminal-width' }]
+                [{ id: 'e', type: 'terminal-width' }],
+                [{ id: 'f', type: 'free-memory' }]
             ];
-            const result = ensureMinimumLines(lines, 4);
+            const result = ensureMinimumLines(lines, 5);
 
-            expect(result).toHaveLength(5);
+            expect(result).toHaveLength(6);
             expect(result).toBe(lines); // returned unchanged
         });
 
         it('is idempotent', () => {
-            const once = ensureMinimumLines([[{ id: 'a', type: 'model' }]], 4);
-            const twice = ensureMinimumLines(once, 4);
+            const once = ensureMinimumLines([[{ id: 'a', type: 'model' }]], 5);
+            const twice = ensureMinimumLines(once, 5);
             expect(twice).toEqual(once);
         });
     });
 
-    it('keeps an existing 3-line config intact and exposes an optional 4th line', async () => {
+    it('keeps an existing 3-line config intact and exposes optional 4th and 5th lines', async () => {
         const { settingsPath, configDir } = getSettingsPaths();
         fs.mkdirSync(configDir, { recursive: true });
 
@@ -275,9 +277,10 @@ describe('config utilities', () => {
         expect(settings.lines[1]).toEqual(existing.lines[1]);
         expect(settings.lines[2]).toEqual(existing.lines[2]);
 
-        // A 4th line is exposed for editing, and it is empty (optional / hidden).
+        // 4th and 5th lines are exposed for editing, and they are empty (optional / hidden).
         expect(settings.lines).toHaveLength(MIN_LINE_COUNT);
         expect(settings.lines[3]).toEqual([]);
+        expect(settings.lines[4]).toEqual([]);
 
         // Loading does NOT rewrite the file: the on-disk config still has 3 lines.
         const onDisk = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as { lines: unknown[] };

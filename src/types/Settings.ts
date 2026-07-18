@@ -11,7 +11,7 @@ export const CURRENT_VERSION = 3;
 // Number of status line slots the editor exposes by default. Lines past the
 // first are optional: an empty line renders nothing, so a line only shows up in
 // the status line once it has at least one widget. Bump this to offer more slots.
-export const MIN_LINE_COUNT = 4;
+export const MIN_LINE_COUNT = 5;
 
 // Schema for v1 settings (before version field was added)
 export const SettingsSchema_v1 = z.object({
@@ -42,6 +42,7 @@ export const SettingsSchema = z.object({
                 { id: '6', type: 'separator' },
                 { id: '7', type: 'git-changes', color: 'yellow' }
             ],
+            [],
             [],
             [],
             []

@@ -40,13 +40,14 @@ bun run example
 ### Tokens, Usage & Context
 
 - **Tokens Input** / **Tokens Output** / **Tokens Cached** / **Tokens Total** - Show current-session token counts.
+- **Tokens Tools** / **Tokens Tool Calls** / **Tokens Tool Outputs** / **Tokens Assistant** / **Tokens User** - Show estimated context tokens held by tool calls + outputs (combined or split into calls and outputs), assistant replies, and your own messages. Estimated from the transcript, calibrated against the last recorded context usage.
 - **Input Speed** / **Output Speed** / **Total Speed** - Show session-average token throughput with an optional per-widget rolling window (`0-120` seconds; `0` = full-session average).
 - **Context Length** / **Context %** / **Context % (usable)** / **Context Bar** - Show model context size, usage percentage, usable-window percentage, or a progress bar.
 - **Session Usage** / **Weekly Usage** / **Block Timer** / **Block Reset Timer** / **Weekly Reset Timer** - Show usage percentages plus current block/reset timing.
 
 ### Environment, Layout & Custom
 
-- **Current Working Dir** / **Terminal Width** / **Memory Usage** - Show the current working directory, detected terminal width, and system memory usage.
+- **Current Working Dir** / **Current Working Folder** / **Terminal Width** / **Memory Usage** - Show the current working directory (full or abbreviated path, or just the folder name), detected terminal width, and system memory usage.
 - **Custom Text** / **Custom Symbol** / **Custom Command** / **Link** - Add user-defined text, a single symbol or emoji, custom command output, or a clickable OSC 8 hyperlink.
 - **Separator** / **Flex Separator** - Add a manual divider or a width-filling flexible spacer (available when Powerline mode is off).
 

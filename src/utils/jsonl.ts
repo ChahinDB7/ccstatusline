@@ -11,6 +11,7 @@ export {
     getSpeedMetricsCollection,
     getTokenMetrics
 } from './jsonl-metrics';
+export { getTranscriptMakeup } from './jsonl-makeup';
 export {
     getTranscriptThinkingEffort,
     normalizeThinkingEffort
