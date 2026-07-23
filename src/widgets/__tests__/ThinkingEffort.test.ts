@@ -49,6 +49,15 @@ function makeTranscriptEntry(content: string): string {
     });
 }
 
+// An assistant turn carrying the base API reasoning effort Claude Code records.
+function makeAssistantEffortEntry(effort: string): string {
+    return JSON.stringify({
+        type: 'assistant',
+        effort,
+        message: { role: 'assistant', content: [{ type: 'text', text: 'ok' }] }
+    });
+}
+
 function render(options: {
     transcriptPath?: string;
     fileContent?: string | null | undefined;
@@ -216,6 +225,62 @@ describe('ThinkingEffortWidget', () => {
                     makeTranscriptEntry(MODEL_WITHOUT_EFFORT)
                 ].join('\n'),
                 settingsValue: { effortLevel: 'medium' }
+            });
+            expect(result).toBe('Effort: medium');
+        });
+    });
+
+    describe('recorded base effort (resume handling)', () => {
+        it('drops a stale /effort pick once an assistant turn ran with a different base effort', () => {
+            // The classic `claude -r` case: /effort ultracode was set in an
+            // earlier sitting, but the resumed session actually runs at xhigh.
+            const result = render({
+                fileContent: [
+                    makeTranscriptEntry(EFFORT_LEVEL_ULTRACODE),
+                    makeAssistantEffortEntry('xhigh')
+                ].join('\n'),
+                settingsValue: { effortLevel: 'high' }
+            });
+            expect(result).toBe('Effort: xhigh');
+        });
+
+        it('keeps a /effort pick that is newer than the last assistant turn (pending change)', () => {
+            const result = render({
+                fileContent: [
+                    makeAssistantEffortEntry('xhigh'),
+                    makeTranscriptEntry(EFFORT_LEVEL_MAX)
+                ].join('\n'),
+                settingsValue: { effortLevel: 'high' }
+            });
+            expect(result).toBe('Effort: max');
+        });
+
+        it('uses the recorded base effort when there is no /effort or /model line', () => {
+            const result = render({
+                fileContent: makeAssistantEffortEntry('medium'),
+                settingsValue: { effortLevel: 'high' }
+            });
+            expect(result).toBe('Effort: medium');
+        });
+
+        it('still shows the label on older transcripts that record no base effort', () => {
+            const result = render({
+                fileContent: [
+                    makeTranscriptEntry(EFFORT_LEVEL_ULTRACODE),
+                    makeTranscriptEntry('<local-command-stdout>Bye!</local-command-stdout>')
+                ].join('\n'),
+                settingsValue: { effortLevel: 'high' }
+            });
+            expect(result).toBe('Effort: ultracode');
+        });
+
+        it('uses the most recent base effort across several assistant turns', () => {
+            const result = render({
+                fileContent: [
+                    makeAssistantEffortEntry('xhigh'),
+                    makeAssistantEffortEntry('medium')
+                ].join('\n'),
+                settingsValue: { effortLevel: 'high' }
             });
             expect(result).toBe('Effort: medium');
         });
