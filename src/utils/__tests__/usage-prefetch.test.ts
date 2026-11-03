@@ -141,9 +141,10 @@ describe('usage prefetch', () => {
 
         const usageData = await prefetchUsageDataIfNeeded(lines, { rate_limits: { five_hour: { used_percentage: 50, resets_at: 1774020000 } } });
 
+        // Live payload values win over the API where both exist; the API fills the gap.
         expect(usageData).toEqual({
             sessionUsage: 50,
-            sessionResetAt: '2026-03-20T12:00:00.000Z',
+            sessionResetAt: new Date(1774020000 * 1000).toISOString(),
             weeklyUsage: 10,
             weeklyResetAt: '2026-03-27T12:00:00.000Z'
         });
@@ -173,8 +174,41 @@ describe('usage prefetch', () => {
             sessionUsage: 42,
             sessionResetAt: '2026-03-20T12:00:00.000Z',
             weeklyUsage: 15,
-            weeklyResetAt: '2026-03-27T12:00:00.000Z'
+            weeklyResetAt: new Date(1774540000 * 1000).toISOString()
         });
+        expect(mockFetchUsageData.mock.calls.length).toBe(1);
+    });
+
+    it('uses weekly-only rate_limits for weekly widgets without calling the API (no session limit plans)', async () => {
+        mockFetchUsageData.mockResolvedValue({ weeklyUsage: 93, weeklyResetAt: '2026-11-03T00:59:59.860Z' });
+
+        const lines = makeLines(
+            [{ id: '1', type: 'weekly-usage' }, { id: '2', type: 'weekly-reset-timer' }]
+        );
+
+        const usageData = await prefetchUsageDataIfNeeded(lines, {
+            rate_limits: {
+                five_hour: null,
+                seven_day: { used_percentage: 6, resets_at: 1794272400 }
+            }
+        });
+
+        expect(usageData?.weeklyUsage).toBe(6);
+        expect(usageData?.weeklyResetAt).toBe(new Date(1794272400 * 1000).toISOString());
+        expect(mockFetchUsageData.mock.calls.length).toBe(0);
+    });
+
+    it('keeps live rate_limits values instead of an API error when a needed window is missing', async () => {
+        mockFetchUsageData.mockResolvedValue({ error: 'rate-limited' });
+
+        const lines = makeLines(
+            [{ id: '1', type: 'session-usage' }, { id: '2', type: 'weekly-usage' }]
+        );
+
+        const usageData = await prefetchUsageDataIfNeeded(lines, { rate_limits: { seven_day: { used_percentage: 6, resets_at: 1794272400 } } });
+
+        expect(usageData?.error).toBeUndefined();
+        expect(usageData?.weeklyUsage).toBe(6);
         expect(mockFetchUsageData.mock.calls.length).toBe(1);
     });
 });

@@ -43,20 +43,21 @@ const CachedUsageDataSchema = z.object({
 });
 
 const UsageApiResponseSchema = z.object({
+    // Plans without a session limit (e.g. Ultra) return `five_hour: null`.
     five_hour: z.object({
         utilization: z.number().nullable().optional(),
         resets_at: z.string().nullable().optional()
-    }).optional(),
+    }).nullable().optional(),
     seven_day: z.object({
         utilization: z.number().nullable().optional(),
         resets_at: z.string().nullable().optional()
-    }).optional(),
+    }).nullable().optional(),
     extra_usage: z.object({
         is_enabled: z.boolean().nullable().optional(),
         monthly_limit: z.number().nullable().optional(),
         used_credits: z.number().nullable().optional(),
         utilization: z.number().nullable().optional()
-    }).optional()
+    }).nullable().optional()
 });
 
 function parseJsonWithSchema<T>(rawJson: string, schema: z.ZodType<T>): T | null {
@@ -147,10 +148,42 @@ function cacheUsageData(data: UsageData, now: number): UsageData {
     return data;
 }
 
+function isResetInPast(resetAt: string | undefined, nowMs: number): boolean {
+    if (!resetAt) {
+        return false;
+    }
+
+    const resetAtMs = Date.parse(resetAt);
+    return !Number.isNaN(resetAtMs) && resetAtMs <= nowMs;
+}
+
+/**
+ * Drops usage windows whose reset time has already passed. Once a window rolls over,
+ * the cached percentage belongs to the previous window and would be shown as current.
+ */
+export function dropExpiredUsageWindows(data: UsageData, nowMs: number): UsageData {
+    const next: UsageData = { ...data };
+
+    if (isResetInPast(next.sessionResetAt, nowMs)) {
+        next.sessionUsage = undefined;
+        next.sessionResetAt = undefined;
+    }
+
+    if (isResetInPast(next.weeklyResetAt, nowMs)) {
+        next.weeklyUsage = undefined;
+        next.weeklyResetAt = undefined;
+    }
+
+    return next;
+}
+
 function getStaleUsageOrError(error: UsageError, now: number, errorCacheMaxAge = LOCK_MAX_AGE): UsageData {
     const stale = readStaleUsageCache();
     if (stale && !stale.error) {
-        return cacheUsageData(stale, now);
+        const current = dropExpiredUsageWindows(stale, now * 1000);
+        if (current.sessionUsage !== undefined || current.weeklyUsage !== undefined) {
+            return cacheUsageData(current, now);
+        }
     }
     return setCachedUsageError(error, now, errorCacheMaxAge);
 }

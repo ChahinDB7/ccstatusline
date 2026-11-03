@@ -4,12 +4,11 @@ import type { WidgetItem } from '../types/Widget';
 import type { UsageData } from './usage';
 import { fetchUsageData } from './usage';
 
+const SESSION_USAGE_WIDGET_TYPES = ['session-usage', 'block-timer', 'reset-timer'];
+const WEEKLY_USAGE_WIDGET_TYPES = ['weekly-usage', 'weekly-reset-timer'];
 const USAGE_WIDGET_TYPES = new Set<string>([
-    'session-usage',
-    'weekly-usage',
-    'block-timer',
-    'reset-timer',
-    'weekly-reset-timer'
+    ...SESSION_USAGE_WIDGET_TYPES,
+    ...WEEKLY_USAGE_WIDGET_TYPES
 ]);
 
 export function hasUsageDependentWidgets(lines: WidgetItem[][]): boolean {
@@ -42,16 +41,35 @@ export function extractUsageDataFromRateLimits(rateLimits: StatusJSON['rate_limi
     return { sessionUsage, sessionResetAt, weeklyUsage, weeklyResetAt };
 }
 
-function hasCompleteRateLimitsUsageData(usageData: UsageData | null): usageData is UsageData & {
-    sessionUsage: number;
-    sessionResetAt: string;
-    weeklyUsage: number;
-    weeklyResetAt: string;
-} {
-    return usageData?.sessionUsage !== undefined
-        && usageData.sessionResetAt !== undefined
-        && usageData.weeklyUsage !== undefined
-        && usageData.weeklyResetAt !== undefined;
+interface UsageNeeds {
+    session: boolean;
+    weekly: boolean;
+}
+
+function getUsageNeeds(lines: WidgetItem[][]): UsageNeeds {
+    const types = new Set(lines.flatMap(line => line.map(item => item.type)));
+    return {
+        session: SESSION_USAGE_WIDGET_TYPES.some(type => types.has(type)),
+        weekly: WEEKLY_USAGE_WIDGET_TYPES.some(type => types.has(type))
+    };
+}
+
+function hasCompleteSessionData(usageData: UsageData | null): boolean {
+    return usageData?.sessionUsage !== undefined && usageData.sessionResetAt !== undefined;
+}
+
+function hasCompleteWeeklyData(usageData: UsageData | null): boolean {
+    return usageData?.weeklyUsage !== undefined && usageData.weeklyResetAt !== undefined;
+}
+
+function overlayDefined(base: UsageData, overlay: UsageData): UsageData {
+    const merged: UsageData = { ...base };
+    for (const [key, value] of Object.entries(overlay)) {
+        if (value !== undefined) {
+            (merged as Record<string, unknown>)[key] = value;
+        }
+    }
+    return merged;
 }
 
 export async function prefetchUsageDataIfNeeded(lines: WidgetItem[][], data?: StatusJSON): Promise<UsageData | null> {
@@ -59,10 +77,23 @@ export async function prefetchUsageDataIfNeeded(lines: WidgetItem[][], data?: St
         return null;
     }
 
+    // rate_limits from Claude Code is live, so prefer it over the API. It only has to cover
+    // the windows the configured widgets show: plans without a session limit omit five_hour.
     const rateLimitsData = extractUsageDataFromRateLimits(data?.rate_limits);
-    if (hasCompleteRateLimitsUsageData(rateLimitsData)) {
+    const needs = getUsageNeeds(lines);
+    const sessionCovered = !needs.session || hasCompleteSessionData(rateLimitsData);
+    const weeklyCovered = !needs.weekly || hasCompleteWeeklyData(rateLimitsData);
+
+    if (rateLimitsData && sessionCovered && weeklyCovered) {
         return rateLimitsData;
     }
 
-    return fetchUsageData();
+    const apiData = await fetchUsageData();
+    if (!rateLimitsData) {
+        return apiData;
+    }
+
+    // The API failed or lacks a window, but the payload still has live numbers: keep those
+    // rather than replacing them with an error message.
+    return overlayDefined({ ...apiData, error: undefined }, rateLimitsData);
 }

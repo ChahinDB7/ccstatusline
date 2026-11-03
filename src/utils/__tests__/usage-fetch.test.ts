@@ -224,21 +224,21 @@ describe('fetchUsageData error handling', () => {
     const successResponseBody = JSON.stringify({
         five_hour: {
             utilization: 42,
-            resets_at: '2030-01-01T00:00:00.000Z'
+            resets_at: '2040-01-01T00:00:00.000Z'
         },
         seven_day: {
             utilization: 17,
-            resets_at: '2030-01-07T00:00:00.000Z'
+            resets_at: '2040-01-07T00:00:00.000Z'
         }
     });
     const updatedSuccessResponseBody = JSON.stringify({
         five_hour: {
             utilization: 55,
-            resets_at: '2030-01-02T00:00:00.000Z'
+            resets_at: '2040-01-02T00:00:00.000Z'
         },
         seven_day: {
             utilization: 21,
-            resets_at: '2030-01-08T00:00:00.000Z'
+            resets_at: '2040-01-08T00:00:00.000Z'
         }
     });
     const rateLimitedResponseBody = JSON.stringify({
@@ -315,9 +315,9 @@ describe('fetchUsageData error handling', () => {
 
             expect(successResult.first).toEqual({
                 sessionUsage: 42,
-                sessionResetAt: '2030-01-01T00:00:00.000Z',
+                sessionResetAt: '2040-01-01T00:00:00.000Z',
                 weeklyUsage: 17,
-                weeklyResetAt: '2030-01-07T00:00:00.000Z'
+                weeklyResetAt: '2040-01-07T00:00:00.000Z'
             });
             expect(successResult.second).toEqual(successResult.first);
             expect(successResult.cacheExists).toBe(true);
@@ -475,12 +475,73 @@ describe('fetchUsageData error handling', () => {
 
             expect(postBackoffResult.first).toEqual({
                 sessionUsage: 55,
-                sessionResetAt: '2030-01-02T00:00:00.000Z',
+                sessionResetAt: '2040-01-02T00:00:00.000Z',
                 weeklyUsage: 21,
-                weeklyResetAt: '2030-01-08T00:00:00.000Z'
+                weeklyResetAt: '2040-01-08T00:00:00.000Z'
             });
             expect(postBackoffResult.second).toEqual(postBackoffResult.first);
             expect(postBackoffResult.requestCount).toBe(1);
+        } finally {
+            harness.cleanup();
+        }
+    });
+
+    it('parses a response with five_hour: null (plans without a session limit)', () => {
+        const harness = createProbeHarness();
+
+        try {
+            const home = harness.createTokenHome('no-session-limit');
+            const result = harness.runProbe({
+                claudeConfigDir: home.claudeConfig,
+                home: home.home,
+                mode: 'success',
+                nowMs,
+                pathDir: home.bin,
+                responseBody: JSON.stringify({
+                    five_hour: null,
+                    seven_day: { utilization: 6, resets_at: '2040-01-07T00:00:00.000Z' },
+                    extra_usage: null
+                })
+            });
+
+            expect(result.first).toEqual({
+                weeklyUsage: 6,
+                weeklyResetAt: '2040-01-07T00:00:00.000Z'
+            });
+            expect(result.requestCount).toBe(1);
+        } finally {
+            harness.cleanup();
+        }
+    });
+
+    it('does not serve stale cached windows whose reset time has already passed', () => {
+        const harness = createProbeHarness();
+
+        try {
+            const home = harness.createTokenHome('stale-expired');
+            harness.runProbe({
+                claudeConfigDir: home.claudeConfig,
+                home: home.home,
+                mode: 'success',
+                nowMs,
+                pathDir: home.bin,
+                responseBody: successResponseBody
+            });
+
+            // Both cached windows reset in January 2040; this run happens after that.
+            const afterResetMs = Date.parse('2040-02-01T00:00:00.000Z');
+            const result = harness.runProbe({
+                claudeConfigDir: home.claudeConfig,
+                home: home.home,
+                mode: 'status',
+                nowMs: afterResetMs,
+                pathDir: home.bin,
+                responseBody: rateLimitedResponseBody,
+                responseHeaders: { 'retry-after': '3600' },
+                statusCode: 429
+            });
+
+            expect(result.first).toEqual({ error: 'rate-limited' });
         } finally {
             harness.cleanup();
         }
@@ -533,9 +594,9 @@ describe('fetchUsageData error handling', () => {
 
             expect(postBackoffResult.first).toEqual({
                 sessionUsage: 42,
-                sessionResetAt: '2030-01-01T00:00:00.000Z',
+                sessionResetAt: '2040-01-01T00:00:00.000Z',
                 weeklyUsage: 17,
-                weeklyResetAt: '2030-01-07T00:00:00.000Z'
+                weeklyResetAt: '2040-01-07T00:00:00.000Z'
             });
             expect(postBackoffResult.second).toEqual(postBackoffResult.first);
             expect(postBackoffResult.requestCount).toBe(1);
